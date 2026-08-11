@@ -1,0 +1,12 @@
+{
+  "version": "1.0",
+  "components": [
+    "Microsoft.VisualStudio.Workload.NativeGame",
+    "Microsoft.VisualStudio.Component.VC.Tools.x86.x64",
+    "Microsoft.VisualStudio.Component.Windows11SDK.26100",
+    "Component.Unreal.Ide",
+    "Component.Unreal.Debugger",
+    "Microsoft.VisualStudio.Component.Unreal.TestAdapter",
+    "Microsoft.VisualStudio.Component.HLSL"
+  ]
+}

@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="it">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Due esperimenti cinematografici realizzati in Unreal Engine 5.8: Glass Orbit e Ocean Jump.">
+  <meta name="theme-color" content="#080b14">
+  <title>Orbital Glass Lab</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="aurora aurora-a" aria-hidden="true"></div>
+  <div class="aurora aurora-b" aria-hidden="true"></div>
+
+  <header class="site-header">
+    <a class="brand" href="#top" aria-label="Orbital Glass Lab, torna all'inizio">
+      <span class="brand-mark" aria-hidden="true"></span>
+      <span>Orbital Glass Lab</span>
+    </a>
+    <span class="engine-tag">Unreal Engine 5.8</span>
+  </header>
+
+  <main id="top">
+    <section class="hero">
+      <p class="eyebrow">Realtime worlds · cinematic studies</p>
+      <h1>Materia, luce<br>e movimento.</h1>
+      <p class="intro">Due prove costruite e animate via Python e Sequencer: un monolite orbitale che attraversa il ciclo giorno/notte e un salto sopra un oceano al tramonto.</p>
+
+      <div class="project-switcher" role="tablist" aria-label="Seleziona esperimento">
+        <button class="project-tab is-active" type="button" role="tab" aria-selected="true" aria-controls="glass-panel" data-target="glass-panel">
+          <span>01</span> Glass Orbit
+        </button>
+        <button class="project-tab" type="button" role="tab" aria-selected="false" aria-controls="ocean-panel" data-target="ocean-panel">
+          <span>02</span> Ocean Jump
+        </button>
+      </div>
+    </section>
+
+    <section class="stage" aria-live="polite">
+      <article class="project-panel is-active" id="glass-panel" role="tabpanel">
+        <div class="video-shell">
+          <video controls playsinline preload="metadata" poster="media/glass-orbit-poster.png">
+            <source src="media/glass-orbit.mp4" type="video/mp4">
+            Il browser non supporta il video HTML5.
+          </video>
+          <div class="video-index" aria-hidden="true">01</div>
+        </div>
+        <div class="project-copy">
+          <div>
+            <p class="project-kicker">Studio I</p>
+            <h2>Glass Orbit</h2>
+          </div>
+          <p>Un cubo rugoso e riflettente ruota e orbita attorno al centro della mappa. Sole, riflessi e LED notturni cambiano il carattere della scena durante uno shot continuo.</p>
+          <dl class="specs">
+            <div><dt>Durata</dt><dd>19,97 s</dd></div>
+            <div><dt>Frame</dt><dd>599</dd></div>
+            <div><dt>Output</dt><dd>720p · 30 fps</dd></div>
+          </dl>
+        </div>
+      </article>
+
+      <article class="project-panel" id="ocean-panel" role="tabpanel" hidden>
+        <div class="video-shell">
+          <video controls playsinline preload="metadata" poster="media/ocean-jump-poster.png">
+            <source src="media/ocean-jump.mp4" type="video/mp4">
+            Il browser non supporta il video HTML5.
+          </video>
+          <div class="video-index" aria-hidden="true">02</div>
+        </div>
+        <div class="project-copy">
+          <div>
+            <p class="project-kicker">Studio II</p>
+            <h2>Ocean Jump</h2>
+          </div>
+          <p>Due piattaforme ruotano sull'asse X sopra un oceano animato. La regia passa dalla terza alla prima persona, segue il salto e chiude su una cupola di luce al tramonto.</p>
+          <dl class="specs">
+            <div><dt>Durata</dt><dd>15,00 s</dd></div>
+            <div><dt>Frame</dt><dd>450</dd></div>
+            <div><dt>Output</dt><dd>720p · 30 fps</dd></div>
+          </dl>
+        </div>
+      </article>
+    </section>
+
+    <section class="process" aria-labelledby="process-title">
+      <p class="eyebrow">Pipeline</p>
+      <h2 id="process-title">Dallo script al fotogramma</h2>
+      <div class="process-grid">
+        <article><span>01</span><h3>Build</h3><p>Mappe, materiali, luci e attori generati nell'Editor Unreal via Python.</p></article>
+        <article><span>02</span><h3>Animate</h3><p>Camere, trasformazioni e cambi di luce orchestrati con Sequencer.</p></article>
+        <article><span>03</span><h3>Render</h3><p>Movie Render Queue in PNG, poi codifica H.264 ottimizzata per il web.</p></article>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <span>Orbital Glass Lab</span>
+    <span>Prototype render · 2026</span>
+  </footer>
+
+  <script src="app.js"></script>
+</body>
+</html>

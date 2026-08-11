@@ -1,0 +1,78 @@
+{
+  "schema_version": 1,
+  "reviewed_on": "2026-08-11",
+  "policy": "Acquire free assets first. Do not purchase commercial water systems until the built-in Water baseline is rendered and compared.",
+  "assets": [
+    {
+      "name": "JVAD3D PRO GLASS A (Free)",
+      "fab_id": "9c35bc89-db1b-4252-a995-5b8a8fad3faf",
+      "url": "https://www.fab.com/listings/9c35bc89-db1b-4252-a995-5b8a8fad3faf",
+      "cost": "free",
+      "priority": 1,
+      "purpose": "Lumen glass reference materials",
+      "download_quality": "native"
+    },
+    {
+      "name": "Massive Nordic Coastal Cliff",
+      "fab_id": "08fc1d81-3d5b-463c-9110-bb95dfa6c53f",
+      "url": "https://www.fab.com/listings/08fc1d81-3d5b-463c-9110-bb95dfa6c53f",
+      "cost": "free",
+      "priority": 1,
+      "purpose": "Nanite coastal hero cliff",
+      "download_quality": "high_4k"
+    },
+    {
+      "name": "Nordic Beach Rock Formation",
+      "fab_id": "5c6d5d6f-3b46-49ed-ad3e-2900f3fa81dd",
+      "url": "https://www.fab.com/listings/5c6d5d6f-3b46-49ed-ad3e-2900f3fa81dd",
+      "cost": "free",
+      "priority": 1,
+      "purpose": "Mid-scale coast dressing",
+      "download_quality": "high_4k"
+    },
+    {
+      "name": "Beach Boulder",
+      "fab_id": "de1ba089-5bb4-4262-a63d-1577b7f86022",
+      "url": "https://www.fab.com/listings/de1ba089-5bb4-4262-a63d-1577b7f86022",
+      "cost": "free",
+      "priority": 1,
+      "purpose": "Foreground coastal prop",
+      "download_quality": "high_4k"
+    },
+    {
+      "name": "NASA Milky Way 2020 8K EXR",
+      "url": "https://svs.gsfc.nasa.gov/vis/a000000/a004800/a004851/milkyway_2020_8k.exr",
+      "cost": "free_with_credit",
+      "priority": 1,
+      "purpose": "Celestial Vault high-resolution background",
+      "download_quality": "8192x4096",
+      "expected_bytes": 137680463,
+      "sha256": "C61222885CA4892929A886CC9C374F17A07C691D64F5F0B64D55AFE66F068BE0",
+      "credit": "NASA/Goddard Space Flight Center Scientific Visualization Studio. Gaia DR2: ESA/Gaia/DPAC."
+    }
+  ],
+  "commercial_candidates": [
+    {
+      "name": "Easy Waterscape",
+      "fab_id": "ddd28113-6f59-4ba3-bf60-ad7b1920a547",
+      "decision": "Evaluate after built-in Water baseline; preferred visual upgrade."
+    },
+    {
+      "name": "Dynamic Real Water",
+      "fab_id": "84495b74-94b4-45d1-a08d-2feac2ecb92f",
+      "decision": "Evaluate only if advanced interaction or buoyancy becomes important."
+    }
+  ],
+  "deferred": [
+    {
+      "name": "Fluid Flux",
+      "fab_id": "196c70cd-1283-4249-bf6b-c3019d1cbe11",
+      "reason": "Best for localized shallow flow, rivers and waterfalls, not the main ocean in this project."
+    },
+    {
+      "name": "Oceanology NextGen",
+      "fab_id": "87c9af41-62b7-4e70-98e3-fc72eff016ab",
+      "reason": "Publisher targets RTX 3080/RTX 4070+; current GPU is RTX 3070."
+    }
+  ]
+}

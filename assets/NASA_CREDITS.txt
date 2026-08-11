@@ -1,0 +1,12 @@
+Asset: Deep Star Maps 2020 - Milky Way background in celestial coordinates, 8K OpenEXR
+Source: https://svs.gsfc.nasa.gov/4851/
+File: milkyway_2020_8k.exr
+Downloaded: 2026-08-11
+Size: 137680463 bytes
+SHA-256: C61222885CA4892929A886CC9C374F17A07C691D64F5F0B64D55AFE66F068BE0
+
+Credit requested by the source page:
+NASA/Goddard Space Flight Center Scientific Visualization Studio.
+Gaia DR2: ESA/Gaia/DPAC.
+
+Additional source-page credits include Ernie Wright (USRA), with the complete credits available at the URL above.
