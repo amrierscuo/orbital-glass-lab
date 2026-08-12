@@ -9,11 +9,17 @@ import unreal
 
 SEQUENCE_PATH = "/Game/OrbitalGlassLab/Cinematics/LS_GlassOrbit"
 MAP_PATH = "/Game/OrbitalGlassLab/Maps/L_GlassOrbit"
-OUTPUT_DIR = "D:/UnrealRenders/OrbitalGlassLab/validation"
+OUTPUT_DIR = "D:/UnrealRenders/OrbitalGlassLab/validation_v2"
+_executor = None
 
 
 def log(message):
     unreal.log(f"[OrbitalGlassRender] {message}")
+
+
+def on_render_finished(executor, success):
+    log(f"Validation render finished; success={success}")
+    unreal.EditorPythonScripting.set_keep_python_script_alive(False)
 
 
 def configure_job(job):
@@ -21,8 +27,8 @@ def configure_job(job):
 
     output = config.find_or_add_setting_by_class(unreal.MoviePipelineOutputSetting)
     output.set_editor_property("output_directory", unreal.DirectoryPath(path=OUTPUT_DIR))
-    output.set_editor_property("file_name_format", "glass_orbit_{frame_number}")
-    output.set_editor_property("output_resolution", unreal.IntPoint(960, 540))
+    output.set_editor_property("file_name_format", "glass_orbit_v2_{frame_number}")
+    output.set_editor_property("output_resolution", unreal.IntPoint(1280, 720))
     output.set_editor_property("override_existing_output", True)
     output.set_editor_property("zero_pad_frame_numbers", 4)
     output.set_editor_property("use_custom_playback_range", True)
@@ -30,7 +36,7 @@ def configure_job(job):
     output.set_editor_property("custom_end_frame", 599)
     # UE 5.8 can directly skip source frames. 150 produces frames near
     # 0 s, 5 s, 10 s and 15 s from the 20-second sequence.
-    output.set_editor_property("output_frame_step", 170)
+    output.set_editor_property("output_frame_step", 120)
 
     config.find_or_add_setting_by_class(unreal.MoviePipelineDeferredPassBase)
     png = config.find_or_add_setting_by_class(
@@ -49,6 +55,7 @@ def configure_job(job):
 
 
 def render():
+    global _executor
     sequence = unreal.load_asset(SEQUENCE_PATH)
     if not sequence:
         raise RuntimeError(f"Missing sequence: {SEQUENCE_PATH}")
@@ -73,10 +80,13 @@ def render():
         "map", unreal.SoftObjectPath(MAP_PATH + ".L_GlassOrbit"))
     configure_job(job)
     log(f"Starting four validation frames -> {OUTPUT_DIR}")
-    executor = subsystem.render_queue_with_executor(
+    unreal.EditorPythonScripting.set_keep_python_script_alive(True)
+    _executor = subsystem.render_queue_with_executor(
         unreal.MoviePipelinePIEExecutor)
-    if not executor:
+    if not _executor:
+        unreal.EditorPythonScripting.set_keep_python_script_alive(False)
         raise RuntimeError("Unable to start the PIE render executor")
+    _executor.on_executor_finished_delegate.add_callable(on_render_finished)
 
 
 try:

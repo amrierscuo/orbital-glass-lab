@@ -4,10 +4,17 @@ import unreal
 
 SEQUENCE_PATH = "/Game/OrbitalGlassLab/Cinematics/LS_OceanJump"
 MAP_PATH = "/Game/OrbitalGlassLab/Maps/L_OceanJump"
-OUTPUT_DIR = "D:/UnrealRenders/OrbitalGlassLab/ocean_validation"
+OUTPUT_DIR = "D:/UnrealRenders/OrbitalGlassLab/ocean_validation_v2"
+_executor = None
+
+
+def on_render_finished(executor, success):
+    unreal.log(f"[OceanJumpRender] Validation finished; success={success}")
+    unreal.EditorPythonScripting.set_keep_python_script_alive(False)
 
 
 def render():
+    global _executor
     if not unreal.load_asset(SEQUENCE_PATH):
         raise RuntimeError(f"Missing sequence: {SEQUENCE_PATH}")
     subsystem = unreal.get_editor_subsystem(unreal.MoviePipelineQueueSubsystem)
@@ -24,23 +31,26 @@ def render():
     config = job.get_configuration()
     output = config.find_or_add_setting_by_class(unreal.MoviePipelineOutputSetting)
     output.set_editor_property("output_directory", unreal.DirectoryPath(path=OUTPUT_DIR))
-    output.set_editor_property("file_name_format", "ocean_jump_{frame_number}")
-    output.set_editor_property("output_resolution", unreal.IntPoint(960, 540))
+    output.set_editor_property("file_name_format", "ocean_jump_v2_{frame_number}")
+    output.set_editor_property("output_resolution", unreal.IntPoint(1280, 720))
     output.set_editor_property("override_existing_output", True)
     output.set_editor_property("zero_pad_frame_numbers", 4)
     output.set_editor_property("use_custom_playback_range", True)
     output.set_editor_property("custom_start_frame", 0)
     output.set_editor_property("custom_end_frame", 449)
     # 0, 110, 220, 330 and 440 cover every cut, including the final orbit.
-    output.set_editor_property("output_frame_step", 110)
+    output.set_editor_property("output_frame_step", 75)
     config.find_or_add_setting_by_class(unreal.MoviePipelineDeferredPassBase)
     config.find_or_add_setting_by_class(unreal.MoviePipelineImageSequenceOutput_PNG)
     aa = config.find_or_add_setting_by_class(unreal.MoviePipelineAntiAliasingSetting)
     aa.set_editor_property("spatial_sample_count", 1)
     aa.set_editor_property("temporal_sample_count", 1)
-    executor = subsystem.render_queue_with_executor(unreal.MoviePipelinePIEExecutor)
-    if not executor:
+    unreal.EditorPythonScripting.set_keep_python_script_alive(True)
+    _executor = subsystem.render_queue_with_executor(unreal.MoviePipelinePIEExecutor)
+    if not _executor:
+        unreal.EditorPythonScripting.set_keep_python_script_alive(False)
         raise RuntimeError("Unable to start validation render")
+    _executor.on_executor_finished_delegate.add_callable(on_render_finished)
 
 
 try:

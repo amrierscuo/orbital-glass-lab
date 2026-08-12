@@ -9,6 +9,7 @@ import unreal
 
 
 SEQUENCE_PATH = "/Game/OrbitalGlassLab/Cinematics/LS_GlassOrbit"
+MAP_PATH = "/Game/OrbitalGlassLab/Maps/L_GlassOrbit"
 FPS = 30
 END_FRAME = FPS * 20
 
@@ -118,7 +119,8 @@ def make_sequence():
 def animate_hero(sequence):
     hero = find_actor("OG_HeroGlassCube")
     core = find_actor("OG_HeroReflectiveCore")
-    samples = []
+    shell_samples = []
+    core_samples = []
     for second in range(21):
         alpha = second / 20.0
         angle = alpha * math.tau
@@ -132,10 +134,14 @@ def animate_hero(sequence):
             32.0 + 720.0 * alpha,
             11.0 + 240.0 * alpha,
         )
-        samples.append((second * FPS, location, rotation,
-                        unreal.Vector(2.8, 2.8, 2.8)))
-    hero_binding = add_transform_track(sequence, hero, samples)
-    add_transform_track(sequence, core, samples)
+        shell_samples.append((second * FPS, location, rotation,
+                              unreal.Vector(2.8, 2.8, 2.8)))
+        # Keep the mirror core substantially smaller than the glass shell.
+        # V1 accidentally scaled both to 2.8, hiding almost all refraction.
+        core_samples.append((second * FPS, location, rotation,
+                             unreal.Vector(1.35, 1.35, 1.35)))
+    hero_binding = add_transform_track(sequence, hero, shell_samples)
+    add_transform_track(sequence, core, core_samples)
     return hero_binding
 
 
@@ -144,24 +150,34 @@ def animate_sun(sequence):
     scale = unreal.Vector(1.0, 1.0, 1.0)
     location = unreal.Vector(0.0, 0.0, 3500.0)
     samples = [
-        (0, location, unreal.Rotator(-8.0, -70.0, 0.0), scale),
-        (5 * FPS, location, unreal.Rotator(-55.0, -25.0, 0.0), scale),
-        (10 * FPS, location, unreal.Rotator(-5.0, 35.0, 0.0), scale),
-        (13 * FPS, location, unreal.Rotator(28.0, 75.0, 0.0), scale),
-        (17 * FPS, location, unreal.Rotator(32.0, 105.0, 0.0), scale),
-        (20 * FPS, location, unreal.Rotator(-20.0, 135.0, 0.0), scale),
+        (0, location, unreal.Rotator(-38.0, -62.0, 0.0), scale),
+        (5 * FPS, location, unreal.Rotator(-27.0, -32.0, 0.0), scale),
+        (10 * FPS, location, unreal.Rotator(-10.0, 2.0, 0.0), scale),
+        (13 * FPS, location, unreal.Rotator(2.0, 27.0, 0.0), scale),
+        (17 * FPS, location, unreal.Rotator(20.0, 54.0, 0.0), scale),
+        (20 * FPS, location, unreal.Rotator(32.0, 76.0, 0.0), scale),
     ]
-    return add_transform_track(sequence, sun, samples)
+    binding = add_transform_track(sequence, sun, samples)
+    sun_component = sun.get_component_by_class(unreal.DirectionalLightComponent)
+    if sun_component:
+        add_float_property(sequence, sun_component, "Temperature", [
+            (0, 5700.0), (5 * FPS, 5300.0), (10 * FPS, 4300.0),
+            (13 * FPS, 3300.0), (17 * FPS, 2750.0), (END_FRAME, 2400.0),
+        ])
+        add_float_property(sequence, sun_component, "Intensity", [
+            (0, 7.5), (5 * FPS, 6.8), (10 * FPS, 5.0),
+            (13 * FPS, 3.1), (17 * FPS, 1.1), (END_FRAME, 0.25),
+        ])
+    return binding
 
 
 def animate_leds(sequence):
     samples = [
         (0, 0.0),
         (9 * FPS, 0.0),
-        (11 * FPS, 350.0),
-        (17 * FPS, 350.0),
-        (19 * FPS, 0.0),
-        (END_FRAME, 0.0),
+        (12 * FPS, 90.0),
+        (15 * FPS, 120.0),
+        (END_FRAME, 145.0),
     ]
     count = 0
     for index in range(1, 6):
@@ -242,9 +258,34 @@ def close_camera_samples(start_frame, end_frame):
 
 
 def led_camera_samples(start_frame, end_frame):
-    target = unreal.Vector(0.0, -420.0, 175.0)
-    return camera_samples(
-        start_frame, end_frame, 1450.0, 470.0, -118.0, -42.0, target)
+    samples = []
+    for frame in range(start_frame, end_frame + 1, FPS // 2):
+        alpha = (frame - start_frame) / float(end_frame - start_frame)
+        hero = hero_location_at(frame)
+        angle = math.radians(-102.0 + 64.0 * alpha)
+        location = unreal.Vector(
+            2600.0 * math.cos(angle),
+            2600.0 * math.sin(angle),
+            620.0 + 90.0 * math.sin(alpha * math.pi),
+        )
+        # Frame the illuminated lane in the foreground while retaining the
+        # orbiting glass as the hero of the final night shot.
+        target = unreal.Vector(
+            hero.x * 0.55,
+            hero.y * 0.55 - 180.0,
+            610.0,
+        )
+        rotation = unreal.MathLibrary.find_look_at_rotation(location, target)
+        samples.append((frame, location, rotation,
+                        unreal.Vector(1.0, 1.0, 1.0)))
+    if samples[-1][0] != end_frame:
+        hero = hero_location_at(end_frame)
+        location = unreal.Vector(2045.0, -1600.0, 620.0)
+        target = unreal.Vector(hero.x * 0.55, hero.y * 0.55 - 180.0, 610.0)
+        samples.append((end_frame, location,
+                        unreal.MathLibrary.find_look_at_rotation(location, target),
+                        unreal.Vector(1.0, 1.0, 1.0)))
+    return samples
 
 
 def add_camera_cut_track(sequence, cuts):
@@ -266,9 +307,9 @@ def add_camera_cut_track(sequence, cuts):
 
 def animate_cameras(sequence):
     specs = [
-        ("OG_Camera_OrbitWide", 0, 9 * FPS, wide_camera_samples),
-        ("OG_Camera_GlassClose", 9 * FPS, 16 * FPS, close_camera_samples),
-        ("OG_Camera_LEDLow", 16 * FPS, END_FRAME, led_camera_samples),
+        ("OG_Camera_OrbitWide", 0, 8 * FPS, wide_camera_samples),
+        ("OG_Camera_GlassClose", 8 * FPS, 15 * FPS, close_camera_samples),
+        ("OG_Camera_LEDLow", 15 * FPS, END_FRAME, led_camera_samples),
     ]
     cuts = []
     for label, start, end, sample_builder in specs:
@@ -297,6 +338,9 @@ def add_sequence_actor(sequence):
 
 def build():
     log("Sequence build started")
+    if not unreal.get_editor_subsystem(
+            unreal.LevelEditorSubsystem).load_level(MAP_PATH):
+        raise RuntimeError(f"Could not load map: {MAP_PATH}")
     sequence = make_sequence()
     animate_hero(sequence)
     animate_sun(sequence)

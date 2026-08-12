@@ -5,6 +5,7 @@ import unreal
 
 
 SEQUENCE_PATH = "/Game/OrbitalGlassLab/Cinematics/LS_OceanJump"
+MAP_PATH = "/Game/OrbitalGlassLab/Maps/L_OceanJump"
 FPS = 30
 END_FRAME = FPS * 15
 
@@ -75,28 +76,28 @@ def make_sequence():
 
 def player_position(frame):
     time = frame / float(FPS)
-    z = 690.0
+    z = 560.0
     if time <= 4.0:
         alpha = time / 4.0
-        return unreal.Vector(-680.0 + 190.0 * alpha, 0.0, z)
-    if time <= 6.0:
-        alpha = (time - 4.0) / 2.0
-        return unreal.Vector(-490.0 + 15.0 * alpha, 0.0, z)
+        return unreal.Vector(-850.0 + 230.0 * alpha, 0.0, z)
+    if time <= 5.5:
+        alpha = (time - 4.0) / 1.5
+        return unreal.Vector(-620.0 + 130.0 * alpha, 0.0, z)
     if time <= 10.0:
-        alpha = (time - 6.0) / 4.0
-        return unreal.Vector(-475.0 + 950.0 * alpha, 0.0,
-                             z + 500.0 * math.sin(math.pi * alpha))
+        alpha = (time - 5.5) / 4.5
+        return unreal.Vector(-490.0 + 980.0 * alpha, 0.0,
+                             z + 520.0 * math.sin(math.pi * alpha))
     alpha = min(1.0, (time - 10.0) / 5.0)
-    return unreal.Vector(475.0 + 250.0 * alpha, 0.0, z)
+    return unreal.Vector(490.0 + 270.0 * alpha, 0.0, z)
 
 
 def animate_platforms(sequence):
     scale = unreal.Vector(5.5, 6.5, 1.0)
     samples_a = []
     samples_b = []
-    for second in range(16):
-        frame = second * FPS
-        roll = 10.0 * math.sin(second * math.pi / 3.5)
+    for frame in range(0, END_FRAME + 1, FPS // 2):
+        second = frame / float(FPS)
+        roll = 4.5 * math.sin(second * math.pi / 3.5)
         samples_a.append((frame, unreal.Vector(-750.0, 0.0, 500.0),
                           unreal.Rotator(roll=roll, pitch=0.0, yaw=0.0), scale))
         samples_b.append((frame, unreal.Vector(750.0, 0.0, 500.0),
@@ -105,63 +106,56 @@ def animate_platforms(sequence):
     add_transform(sequence, find("OJ_PlatformB"), samples_b)
 
 
-def pose_rotation(label, jump_alpha):
-    if "ArmL" in label:
-        return unreal.Rotator(roll=-18.0, pitch=-75.0 * jump_alpha, yaw=-12.0)
-    if "ArmR" in label:
-        return unreal.Rotator(roll=18.0, pitch=75.0 * jump_alpha, yaw=12.0)
-    if "LegL" in label:
-        return unreal.Rotator(roll=6.0, pitch=42.0 * jump_alpha, yaw=-3.0)
-    if "LegR" in label:
-        return unreal.Rotator(roll=-6.0, pitch=-38.0 * jump_alpha, yaw=3.0)
-    return unreal.Rotator(0.0, 0.0, 0.0)
-
-
 def animate_player(sequence):
-    labels = [
-        "OJ_Player_Pelvis", "OJ_Player_Torso", "OJ_Player_Head",
-        "OJ_Player_ArmL", "OJ_Player_ArmR", "OJ_Player_LegL",
-        "OJ_Player_LegR", "OJ_Player_FootL", "OJ_Player_FootR",
+    player = find("OJ_Player")
+    samples = []
+    for frame in range(0, END_FRAME + 1, FPS // 2):
+        samples.append((frame, player_position(frame),
+                        unreal.Rotator(0.0, 0.0, 0.0),
+                        unreal.Vector(1.0, 1.0, 1.0)))
+    binding = add_transform(sequence, player, samples)
+
+    animation_root = "/Game/Characters/Mannequins/Anims/Unarmed"
+    clips = [
+        (0, 135, f"{animation_root}/Jog/MF_Unarmed_Jog_Fwd.MF_Unarmed_Jog_Fwd"),
+        (135, 165, f"{animation_root}/MM_Idle.MM_Idle"),
+        (165, 225, f"{animation_root}/Jump/MM_Jump.MM_Jump"),
+        (225, 300, f"{animation_root}/Jump/MM_Fall_Loop.MM_Fall_Loop"),
+        (300, 345, f"{animation_root}/Jump/MM_Land.MM_Land"),
+        (345, END_FRAME, f"{animation_root}/MM_Idle.MM_Idle"),
     ]
-    origin = unreal.Vector(-680.0, 0.0, 690.0)
-    sample_frames = [0, 60, 120, 180, 210, 240, 270, 300, 360, 450]
-    for label in labels:
-        actor = find(label)
-        offset = actor.get_actor_location() - origin
-        scale = actor.get_actor_scale3d()
-        samples = []
-        for frame in sample_frames:
-            position = player_position(frame) + offset
-            if 180 <= frame <= 300:
-                jump_alpha = math.sin(math.pi * (frame - 180) / 120.0)
-            else:
-                jump_alpha = 0.0
-            rotation = pose_rotation(label, jump_alpha)
-            samples.append((frame, position, rotation, scale))
-        add_transform(sequence, actor, samples)
+    animation_track = binding.add_track(unreal.MovieSceneSkeletalAnimationTrack)
+    for start, end, path in clips:
+        animation = unreal.load_asset(path)
+        if not animation:
+            raise RuntimeError(f"Missing mannequin animation: {path}")
+        section = animation_track.add_section()
+        section.set_range(start, end)
+        params = section.get_editor_property("params")
+        params.set_editor_property("animation", animation)
 
 
 def animate_sun(sequence):
     location = unreal.Vector(0.0, 0.0, 4500.0)
     scale = unreal.Vector(1.0, 1.0, 1.0)
     samples = [
-        (0, location, unreal.Rotator(-38.0, -75.0, 0.0), scale),
-        (5 * FPS, location, unreal.Rotator(-36.0, -25.0, 0.0), scale),
-        (8 * FPS, location, unreal.Rotator(-34.0, 12.0, 0.0), scale),
-        (11 * FPS, location, unreal.Rotator(-32.0, 38.0, 0.0), scale),
-        (END_FRAME, location, unreal.Rotator(-31.0, 64.0, 0.0), scale),
+        (0, location, unreal.Rotator(roll=0.0, pitch=-32.0, yaw=-65.0), scale),
+        (5 * FPS, location, unreal.Rotator(roll=0.0, pitch=-27.0, yaw=-30.0), scale),
+        (8 * FPS, location, unreal.Rotator(roll=0.0, pitch=-25.0, yaw=4.0), scale),
+        (11 * FPS, location, unreal.Rotator(roll=0.0, pitch=-25.0, yaw=28.0), scale),
+        (END_FRAME, location, unreal.Rotator(roll=0.0, pitch=-25.0, yaw=58.0), scale),
     ]
     sun = find("OJ_Sun")
     add_transform(sequence, sun, samples)
     sun_component = sun.get_component_by_class(unreal.DirectionalLightComponent)
     if sun_component:
         add_float_property(sequence, sun_component, "Temperature", [
-            (0, 5600.0), (5 * FPS, 4700.0), (8 * FPS, 3400.0),
-            (11 * FPS, 2900.0), (END_FRAME, 2600.0),
+            (0, 5800.0), (5 * FPS, 5100.0), (8 * FPS, 4100.0),
+            (11 * FPS, 3300.0), (END_FRAME, 2750.0),
         ])
         add_float_property(sequence, sun_component, "Intensity", [
-            (0, 7.0), (5 * FPS, 6.0), (8 * FPS, 4.8),
-            (11 * FPS, 4.0), (END_FRAME, 3.5),
+            (0, 7.0), (5 * FPS, 6.4), (8 * FPS, 5.5),
+            (11 * FPS, 4.7), (END_FRAME, 4.0),
         ])
 
 
@@ -202,33 +196,33 @@ def camera_samples(start, end, mode):
     for frame in range(start, end + 1, step):
         player = player_position(frame)
         if mode == "third":
-            location = player + unreal.Vector(-1000.0, -1300.0, 500.0)
-            target = player + unreal.Vector(150.0, 0.0, 35.0)
+            location = player + unreal.Vector(-850.0, -1050.0, 380.0)
+            target = player + unreal.Vector(170.0, 0.0, 95.0)
         elif mode == "first":
-            location = player + unreal.Vector(52.0, 0.0, 112.0)
-            target = unreal.Vector(600.0, 0.0, 720.0)
+            location = player + unreal.Vector(36.0, -8.0, 165.0)
+            target = unreal.Vector(650.0, 0.0, 680.0)
         elif mode == "jump":
-            location = unreal.Vector(player.x * 0.18, -1800.0, 1050.0)
-            target = player + unreal.Vector(0.0, 0.0, 45.0)
+            location = unreal.Vector(player.x * 0.22, -1500.0, 980.0)
+            target = player + unreal.Vector(0.0, 0.0, 95.0)
         else:
-            location = player + unreal.Vector(-620.0, 1000.0, 390.0)
-            target = player + unreal.Vector(170.0, 0.0, 55.0)
+            location = player + unreal.Vector(-520.0, 780.0, 280.0)
+            target = player + unreal.Vector(170.0, 0.0, 105.0)
         rotation = unreal.MathLibrary.find_look_at_rotation(location, target)
         samples.append((frame, location, rotation, unreal.Vector(1.0, 1.0, 1.0)))
     if samples[-1][0] != end:
         player = player_position(end)
         if mode == "third":
-            location = player + unreal.Vector(-1000.0, -1300.0, 500.0)
-            target = player + unreal.Vector(150.0, 0.0, 35.0)
+            location = player + unreal.Vector(-850.0, -1050.0, 380.0)
+            target = player + unreal.Vector(170.0, 0.0, 95.0)
         elif mode == "first":
-            location = player + unreal.Vector(52.0, 0.0, 112.0)
-            target = unreal.Vector(600.0, 0.0, 720.0)
+            location = player + unreal.Vector(36.0, -8.0, 165.0)
+            target = unreal.Vector(650.0, 0.0, 680.0)
         elif mode == "jump":
-            location = unreal.Vector(player.x * 0.18, -1800.0, 1050.0)
-            target = player + unreal.Vector(0.0, 0.0, 45.0)
+            location = unreal.Vector(player.x * 0.22, -1500.0, 980.0)
+            target = player + unreal.Vector(0.0, 0.0, 95.0)
         else:
-            location = player + unreal.Vector(-620.0, 1000.0, 390.0)
-            target = player + unreal.Vector(170.0, 0.0, 55.0)
+            location = player + unreal.Vector(-520.0, 780.0, 280.0)
+            target = player + unreal.Vector(170.0, 0.0, 105.0)
         samples.append((end, location,
                         unreal.MathLibrary.find_look_at_rotation(location, target),
                         unreal.Vector(1.0, 1.0, 1.0)))
@@ -254,10 +248,10 @@ def add_camera_cuts(sequence, cuts):
 def animate_cameras(sequence):
     cuts = []
     specs = [
-        ("OJ_CameraThird", 0, 4 * FPS, "third"),
-        ("OJ_CameraFirst", 4 * FPS, 13 * FPS // 2, "first"),
-        ("OJ_CameraJump", 13 * FPS // 2, 25 * FPS // 2, "jump"),
-        ("OJ_CameraLanding", 25 * FPS // 2, END_FRAME, "landing"),
+        ("OJ_CameraThird", 0, 9 * FPS // 2, "third"),
+        ("OJ_CameraFirst", 9 * FPS // 2, 6 * FPS, "first"),
+        ("OJ_CameraJump", 6 * FPS, 11 * FPS, "jump"),
+        ("OJ_CameraLanding", 11 * FPS, END_FRAME, "landing"),
     ]
     for label, start, end, mode in specs:
         binding = add_transform(sequence, find(label), camera_samples(start, end, mode))
@@ -280,11 +274,13 @@ def add_sequence_actor(sequence):
 
 
 def build():
+    if not unreal.get_editor_subsystem(
+            unreal.LevelEditorSubsystem).load_level(MAP_PATH):
+        raise RuntimeError(f"Could not load map: {MAP_PATH}")
     sequence = make_sequence()
     animate_platforms(sequence)
     animate_player(sequence)
     animate_sun(sequence)
-    animate_sunset_backdrops(sequence)
     animate_cameras(sequence)
     add_sequence_actor(sequence)
     unreal.EditorAssetLibrary.save_asset(SEQUENCE_PATH, only_if_is_dirty=False)

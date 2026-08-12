@@ -1,7 +1,7 @@
-"""Build the Ocean Jump test map for Unreal Engine 5.8.
+"""Build the Ocean Jump v2 test map for Unreal Engine 5.8.
 
-The map uses only engine/Water-plugin assets: a Gerstner-wave ocean surface,
-two rotating platforms, a lightweight generic humanoid and three cameras.
+The map uses the bundled third-person template assets: a displaced ocean,
+two rotating platforms, Manny and four cinematic cameras.
 Run from Tools > Execute Python Script inside Unreal Editor.
 """
 
@@ -94,16 +94,18 @@ def make_ocean_material():
     """Create a self-contained animated ocean material for any static mesh.
 
     The stock Water_Material_Ocean expects a complete WaterBody/Landscape
-    render-data setup. This material keeps the Water plugin's authored normal
-    map and pans it in real time, so it also renders correctly in MRQ.
+    render-data setup. This material combines the Water plugin normal map with
+    two procedural vertex waves, so it also renders correctly in MRQ.
     """
-    name = "M_OJ_AnimatedOceanV2"
+    name = "M_OJ_AnimatedOceanV3"
     path = f"{MATERIAL_ROOT}/{name}"
     existing = unreal.load_asset(path)
     if existing:
-        return existing
-    material = asset_tools.create_asset(
-        name, MATERIAL_ROOT, unreal.Material, unreal.MaterialFactoryNew())
+        material = existing
+        unreal.MaterialEditingLibrary.delete_all_material_expressions(material)
+    else:
+        material = asset_tools.create_asset(
+            name, MATERIAL_ROOT, unreal.Material, unreal.MaterialFactoryNew())
     if not material:
         raise RuntimeError(f"Could not create {path}")
 
@@ -129,7 +131,7 @@ def make_ocean_material():
     ambient = unreal.MaterialEditingLibrary.create_material_expression(
         material, unreal.MaterialExpressionVectorParameter, -700, 200)
     set_prop(ambient, "parameter_name", "WaterAmbient")
-    set_prop(ambient, "default_value", unreal.LinearColor(0.0, 0.012, 0.035, 1.0))
+    set_prop(ambient, "default_value", unreal.LinearColor(0.0, 0.025, 0.08, 1.0))
     unreal.MaterialEditingLibrary.connect_material_property(
         ambient, "", unreal.MaterialProperty.MP_EMISSIVE_COLOR)
 
@@ -156,8 +158,84 @@ def make_ocean_material():
         coordinates, "", panner, "Coordinate")
     unreal.MaterialEditingLibrary.connect_material_expressions(
         panner, "", sample, "Coordinates")
+    flat_normal = unreal.MaterialEditingLibrary.create_material_expression(
+        material, unreal.MaterialExpressionVectorParameter, -160, 360)
+    set_prop(flat_normal, "parameter_name", "FlatNormal")
+    set_prop(flat_normal, "default_value", unreal.LinearColor(0.0, 0.0, 1.0, 1.0))
+    normal_strength = scalar("NormalStrength", 0.38, -160, 500)
+    normal_blend = unreal.MaterialEditingLibrary.create_material_expression(
+        material, unreal.MaterialExpressionLinearInterpolate, 80, 380)
+    unreal.MaterialEditingLibrary.connect_material_expressions(
+        flat_normal, "", normal_blend, "A")
+    unreal.MaterialEditingLibrary.connect_material_expressions(
+        sample, "RGB", normal_blend, "B")
+    unreal.MaterialEditingLibrary.connect_material_expressions(
+        normal_strength, "", normal_blend, "Alpha")
     unreal.MaterialEditingLibrary.connect_material_property(
-        sample, "RGB", unreal.MaterialProperty.MP_NORMAL)
+        normal_blend, "", unreal.MaterialProperty.MP_NORMAL)
+
+    # Displace the high-density Water plane with two crossing waves. Their
+    # different headings and periods prevent the flat marbled look of v1.
+    displacement_uv = unreal.MaterialEditingLibrary.create_material_expression(
+        material, unreal.MaterialExpressionTextureCoordinate, -1180, 560)
+    mask_x = unreal.MaterialEditingLibrary.create_material_expression(
+        material, unreal.MaterialExpressionComponentMask, -980, 500)
+    mask_y = unreal.MaterialEditingLibrary.create_material_expression(
+        material, unreal.MaterialExpressionComponentMask, -980, 620)
+    for channel in ("r", "g", "b", "a"):
+        set_prop(mask_x, channel, channel == "r")
+        set_prop(mask_y, channel, channel == "g")
+    unreal.MaterialEditingLibrary.connect_material_expressions(
+        displacement_uv, "", mask_x, "")
+    unreal.MaterialEditingLibrary.connect_material_expressions(
+        displacement_uv, "", mask_y, "")
+    time_node = unreal.MaterialEditingLibrary.create_material_expression(
+        material, unreal.MaterialExpressionTime, -980, 780)
+
+    def multiply(a, b, x, y):
+        node = unreal.MaterialEditingLibrary.create_material_expression(
+            material, unreal.MaterialExpressionMultiply, x, y)
+        unreal.MaterialEditingLibrary.connect_material_expressions(a, "", node, "A")
+        unreal.MaterialEditingLibrary.connect_material_expressions(b, "", node, "B")
+        return node
+
+    def add(a, b, x, y):
+        node = unreal.MaterialEditingLibrary.create_material_expression(
+            material, unreal.MaterialExpressionAdd, x, y)
+        unreal.MaterialEditingLibrary.connect_material_expressions(a, "", node, "A")
+        unreal.MaterialEditingLibrary.connect_material_expressions(b, "", node, "B")
+        return node
+
+    def wave(label, x_input, y_input, direction_y, frequency, speed,
+             amplitude, x, y):
+        direction = scalar(f"{label}DirectionY", direction_y, x, y + 80)
+        y_directed = multiply(y_input, direction, x + 180, y + 70)
+        spatial = add(x_input, y_directed, x + 360, y)
+        frequency_node = scalar(f"{label}Frequency", frequency, x, y + 180)
+        phase_space = multiply(spatial, frequency_node, x + 540, y)
+        speed_node = scalar(f"{label}Speed", speed, x, y + 280)
+        phase_time = multiply(time_node, speed_node, x + 540, y + 130)
+        phase = add(phase_space, phase_time, x + 720, y + 50)
+        sine = unreal.MaterialEditingLibrary.create_material_expression(
+            material, unreal.MaterialExpressionSine, x + 900, y + 50)
+        set_prop(sine, "period", 1.0)
+        unreal.MaterialEditingLibrary.connect_material_expressions(
+            phase, "", sine, "")
+        amplitude_node = scalar(f"{label}Amplitude", amplitude, x + 720, y + 210)
+        return multiply(sine, amplitude_node, x + 1080, y + 80)
+
+    wave_a = wave("WaveA", mask_x, mask_y, 0.55, 2.2, 0.085,
+                  42.0, -860, 960)
+    wave_b = wave("WaveB", mask_y, mask_x, -0.42, 3.7, -0.13,
+                  20.0, -860, 1320)
+    combined_waves = add(wave_a, wave_b, 420, 1160)
+    up_axis = unreal.MaterialEditingLibrary.create_material_expression(
+        material, unreal.MaterialExpressionVectorParameter, 420, 1320)
+    set_prop(up_axis, "parameter_name", "DisplacementAxis")
+    set_prop(up_axis, "default_value", unreal.LinearColor(0.0, 0.0, 1.0, 1.0))
+    displacement = multiply(combined_waves, up_axis, 660, 1220)
+    unreal.MaterialEditingLibrary.connect_material_property(
+        displacement, "", unreal.MaterialProperty.MP_WORLD_POSITION_OFFSET)
 
     unreal.MaterialEditingLibrary.layout_material_expressions(material)
     unreal.MaterialEditingLibrary.recompile_material(material)
@@ -270,13 +348,16 @@ def open_level():
 def build_environment():
     sun = spawn_actor(
         "Sun", unreal.DirectionalLight, unreal.Vector(0.0, 0.0, 4500.0),
-        unreal.Rotator(-35.0, -70.0, 0.0), "OceanJump/Lighting")
+        unreal.Rotator(roll=0.0, pitch=-35.0, yaw=-70.0),
+        "OceanJump/Lighting")
     sun_component = component(sun, unreal.DirectionalLightComponent)
     set_prop(sun_component, "mobility", unreal.ComponentMobility.MOVABLE)
     set_prop(sun_component, "intensity", 7.0)
     set_prop(sun_component, "use_temperature", True)
     set_prop(sun_component, "temperature", 5100.0)
     set_prop(sun_component, "cast_cloud_shadows", True)
+    set_prop(sun_component, "atmosphere_sun_light", True)
+    set_prop(sun_component, "atmosphere_sun_light_index", 0)
 
     atmosphere = spawn_actor(
         "SkyAtmosphere", unreal.SkyAtmosphere, unreal.Vector(),
@@ -291,7 +372,7 @@ def build_environment():
     sky_component = component(sky, unreal.SkyLightComponent)
     set_prop(sky_component, "mobility", unreal.ComponentMobility.MOVABLE)
     set_prop(sky_component, "real_time_capture", True)
-    set_prop(sky_component, "intensity", 1.0)
+    set_prop(sky_component, "intensity", 1.6)
 
     try:
         cloud = spawn_actor("VolumetricCloud", unreal.VolumetricCloud,
@@ -304,10 +385,10 @@ def build_environment():
     fog = spawn_actor("HeightFog", unreal.ExponentialHeightFog,
                       unreal.Vector(), folder="OceanJump/Environment")
     fog_component = component(fog, unreal.ExponentialHeightFogComponent)
-    set_prop(fog_component, "fog_density", 0.0012)
+    set_prop(fog_component, "fog_density", 0.00055)
     set_prop(fog_component, "fog_height_falloff", 0.11)
     set_prop(fog_component, "volumetric_fog", True)
-    set_prop(fog_component, "volumetric_fog_extinction_scale", 0.35)
+    set_prop(fog_component, "volumetric_fog_extinction_scale", 0.2)
 
     post = spawn_actor("PostProcess", unreal.PostProcessVolume,
                        unreal.Vector(0.0, 0.0, 1000.0),
@@ -315,15 +396,24 @@ def build_environment():
     set_prop(post, "unbound", True)
     settings = post.get_editor_property("settings")
     set_prop(settings, "override_bloom_intensity", True)
-    set_prop(settings, "bloom_intensity", 0.18)
+    set_prop(settings, "bloom_intensity", 0.24)
     set_prop(settings, "override_motion_blur_amount", True)
-    set_prop(settings, "motion_blur_amount", 0.05)
+    set_prop(settings, "motion_blur_amount", 0.0)
     set_prop(settings, "override_auto_exposure_min_brightness", True)
     set_prop(settings, "override_auto_exposure_max_brightness", True)
     set_prop(settings, "auto_exposure_min_brightness", 1.0)
     set_prop(settings, "auto_exposure_max_brightness", 1.0)
     set_prop(settings, "override_auto_exposure_bias", True)
-    set_prop(settings, "auto_exposure_bias", 0.75)
+    set_prop(settings, "auto_exposure_bias", 0.55)
+
+    try:
+        reflection = spawn_actor(
+            "ReflectionCapture", unreal.SphereReflectionCapture,
+            unreal.Vector(0.0, 0.0, 900.0), folder="OceanJump/Lighting")
+        set_prop(component(reflection, unreal.SphereReflectionCaptureComponent),
+                 "influence_radius", 9000.0)
+    except Exception as exc:
+        warn(f"Reflection capture skipped: {exc}")
 
 
 def build_ocean(ocean_material):
@@ -360,7 +450,8 @@ def build_sunset_backdrops(material):
 
 
 def build_platforms(materials):
-    cube = mesh("Cube")
+    cube = unreal.load_asset(
+        "/Game/LevelPrototyping/Meshes/SM_ChamferCube.SM_ChamferCube") or mesh("Cube")
     specs = [
         ("PlatformA", unreal.Vector(-750.0, 0.0, 500.0),
          unreal.Vector(5.5, 6.5, 1.0), materials["platform_a"]),
@@ -378,7 +469,7 @@ def build_platforms(materials):
                             folder="OceanJump/Lighting")
         light_component = component(light, unreal.PointLightComponent)
         set_prop(light_component, "mobility", unreal.ComponentMobility.MOVABLE)
-        set_prop(light_component, "intensity", 750.0)
+        set_prop(light_component, "intensity", 400.0)
         set_prop(light_component, "attenuation_radius", 850.0)
         try:
             light_component.set_light_color(
@@ -391,7 +482,7 @@ def build_platforms(materials):
         folder="OceanJump/Lighting")
     fill_component = component(sunset_fill, unreal.PointLightComponent)
     set_prop(fill_component, "mobility", unreal.ComponentMobility.MOVABLE)
-    set_prop(fill_component, "intensity", 4800.0)
+    set_prop(fill_component, "intensity", 2200.0)
     set_prop(fill_component, "attenuation_radius", 5200.0)
     try:
         fill_component.set_light_color(
@@ -400,28 +491,29 @@ def build_platforms(materials):
         pass
 
 
-def build_player(material):
-    """Assemble an asset-free humanoid from engine primitives."""
-    cube = mesh("Cube")
-    sphere = mesh("Sphere")
-    cylinder = mesh("Cylinder")
-    origin = unreal.Vector(-680.0, 0.0, 690.0)
-    parts = [
-        ("Player_Pelvis", cube, (0, 0, 0), (.28, .22, .22), (0, 0, 0)),
-        ("Player_Torso", cube, (0, 0, 48), (.38, .24, .52), (0, 0, 0)),
-        ("Player_Head", sphere, (0, 0, 112), (.22, .22, .24), (0, 0, 0)),
-        ("Player_ArmL", cylinder, (0, -34, 50), (.10, .10, .45), (-18, 0, -12)),
-        ("Player_ArmR", cylinder, (0, 34, 50), (.10, .10, .45), (18, 0, 12)),
-        ("Player_LegL", cylinder, (0, -15, -48), (.13, .13, .52), (6, 0, -3)),
-        ("Player_LegR", cylinder, (0, 15, -48), (.13, .13, .52), (-6, 0, 3)),
-        ("Player_FootL", cube, (18, -15, -104), (.28, .14, .11), (0, 0, 0)),
-        ("Player_FootR", cube, (18, 15, -104), (.28, .14, .11), (0, 0, 0)),
-    ]
-    for name, static_mesh, offset, scale, rotation in parts:
-        spawn_mesh(
-            name, static_mesh,
-            origin + unreal.Vector(*offset), unreal.Vector(*scale), material,
-            unreal.Rotator(*rotation), "OceanJump/Player", movable=True)
+def build_player():
+    """Spawn the bundled UE mannequin as a movable cinematic performer."""
+    skeletal_mesh = load(
+        "/Game/Characters/Mannequins/Meshes/SKM_Manny_Simple."
+        "SKM_Manny_Simple")
+    player = spawn_actor(
+        "Player", unreal.SkeletalMeshActor,
+        unreal.Vector(-850.0, 0.0, 560.0),
+        unreal.Rotator(0.0, 0.0, 0.0), "OceanJump/Player")
+    skeletal_component = component(player, unreal.SkeletalMeshComponent)
+    if not skeletal_component:
+        raise RuntimeError("Manny SkeletalMeshComponent is missing")
+    try:
+        skeletal_component.set_skeletal_mesh_asset(skeletal_mesh)
+    except Exception:
+        set_prop(skeletal_component, "skeletal_mesh_asset", skeletal_mesh)
+    set_prop(skeletal_component, "mobility", unreal.ComponentMobility.MOVABLE)
+    try:
+        skeletal_component.set_collision_enabled(
+            unreal.CollisionEnabled.NO_COLLISION)
+    except Exception:
+        pass
+    return player
 
 
 def build_cameras():
@@ -446,20 +538,15 @@ def build():
     open_level()
     materials = {
         "platform_a": make_material(
-            "M_OJ_PlatformA", (0.015, 0.06, 0.12, 1.0), 0.22, 0.72),
+            "M_OJ_PlatformA_V2", (0.01, 0.035, 0.075, 1.0), 0.16, 0.82),
         "platform_b": make_material(
-            "M_OJ_PlatformB", (0.12, 0.035, 0.018, 1.0), 0.27, 0.62),
-        "player": make_material(
-            "M_OJ_Player", (0.04, 0.22, 0.48, 1.0), 0.32, 0.24,
-            emissive=(0.0, 0.018, 0.055, 1.0)),
+            "M_OJ_PlatformB_V2", (0.09, 0.018, 0.008, 1.0), 0.18, 0.76),
         "ocean": make_ocean_material(),
-        "sunset": make_sunset_material(),
     }
     build_environment()
     build_ocean(materials["ocean"])
-    build_sunset_backdrops(materials["sunset"])
     build_platforms(materials)
-    build_player(materials["player"])
+    build_player()
     build_cameras()
     unreal.EditorLoadingAndSavingUtils.save_dirty_packages(
         save_map_packages=True, save_content_packages=True)

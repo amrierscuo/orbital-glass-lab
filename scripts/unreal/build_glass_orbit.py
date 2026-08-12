@@ -46,7 +46,8 @@ def load_engine_mesh(name):
 
 
 def create_material(asset_name, base_color, roughness, metallic=0.0,
-                    emissive=None, opacity=None, refraction=None):
+                    emissive=None, opacity=None, refraction=None,
+                    fresnel_opacity=False):
     """Create a small, editable PBR material asset if it does not exist."""
     asset_path = f"{MATERIAL_ROOT}/{asset_name}"
     existing = unreal.load_asset(asset_path)
@@ -97,9 +98,27 @@ def create_material(asset_name, base_color, roughness, metallic=0.0,
         unreal.MaterialEditingLibrary.connect_material_property(
             emissive_node, "", unreal.MaterialProperty.MP_EMISSIVE_COLOR)
     if opacity is not None:
-        opacity_node = scalar_parameter("Opacity", opacity, -640, 460)
-        unreal.MaterialEditingLibrary.connect_material_property(
-            opacity_node, "", unreal.MaterialProperty.MP_OPACITY)
+        opacity_node = scalar_parameter("EdgeOpacity", opacity, -640, 460)
+        if fresnel_opacity:
+            interior_node = scalar_parameter(
+                "InteriorOpacity", max(0.035, opacity * 0.15), -640, 560)
+            fresnel = unreal.MaterialEditingLibrary.create_material_expression(
+                material, unreal.MaterialExpressionFresnel, -400, 500)
+            set_prop(fresnel, "exponent_in", 3.8)
+            set_prop(fresnel, "base_reflect_fraction_in", 0.04)
+            opacity_lerp = unreal.MaterialEditingLibrary.create_material_expression(
+                material, unreal.MaterialExpressionLinearInterpolate, -160, 500)
+            unreal.MaterialEditingLibrary.connect_material_expressions(
+                interior_node, "", opacity_lerp, "A")
+            unreal.MaterialEditingLibrary.connect_material_expressions(
+                opacity_node, "", opacity_lerp, "B")
+            unreal.MaterialEditingLibrary.connect_material_expressions(
+                fresnel, "", opacity_lerp, "Alpha")
+            unreal.MaterialEditingLibrary.connect_material_property(
+                opacity_lerp, "", unreal.MaterialProperty.MP_OPACITY)
+        else:
+            unreal.MaterialEditingLibrary.connect_material_property(
+                opacity_node, "", unreal.MaterialProperty.MP_OPACITY)
     if refraction is not None:
         refraction_node = scalar_parameter("IOR", refraction, -640, 580)
         unreal.MaterialEditingLibrary.connect_material_property(
@@ -222,15 +241,15 @@ def build_environment(materials):
     set_prop(post, "unbound", True)
     settings = post.get_editor_property("settings")
     set_prop(settings, "override_bloom_intensity", True)
-    set_prop(settings, "bloom_intensity", 0.03)
+    set_prop(settings, "bloom_intensity", 0.12)
     set_prop(settings, "override_auto_exposure_min_brightness", True)
     set_prop(settings, "override_auto_exposure_max_brightness", True)
     # Lock exposure so camera cuts cannot pump from daylight to black and
     # back. In the project's extended-luminance mode these values are EV100.
-    set_prop(settings, "auto_exposure_min_brightness", 2.0)
-    set_prop(settings, "auto_exposure_max_brightness", 2.0)
+    set_prop(settings, "auto_exposure_min_brightness", 1.0)
+    set_prop(settings, "auto_exposure_max_brightness", 1.0)
     set_prop(settings, "override_auto_exposure_bias", True)
-    set_prop(settings, "auto_exposure_bias", 0.35)
+    set_prop(settings, "auto_exposure_bias", 0.65)
 
     # The sphere gives the map a physical visual boundary. It is intentionally
     # translucent and two-sided, while Sky Atmosphere supplies the actual sky.
@@ -244,6 +263,8 @@ def build_stage(materials):
     plane = load_engine_mesh("Plane")
     cylinder = load_engine_mesh("Cylinder")
     cube = load_engine_mesh("Cube")
+    chamfer_cube = unreal.load_asset(
+        "/Game/LevelPrototyping/Meshes/SM_ChamferCube.SM_ChamferCube") or cube
     sphere = load_engine_mesh("Sphere")
 
     spawn_mesh(
@@ -260,7 +281,7 @@ def build_stage(materials):
         "OrbitPivot", sphere, pivot, unreal.Vector(0.18, 0.18, 0.18),
         material=materials["pivot"], folder="OrbitalGlassLab/Rig")
     hero = spawn_mesh(
-        "HeroGlassCube", cube, unreal.Vector(800.0, 0.0, 1000.0),
+        "HeroGlassCube", chamfer_cube, unreal.Vector(800.0, 0.0, 1000.0),
         unreal.Vector(2.8, 2.8, 2.8), unreal.Rotator(18.0, 32.0, 11.0),
         materials["glass"], "OrbitalGlassLab/Hero", movable=True)
     try:
@@ -272,7 +293,7 @@ def build_stage(materials):
     # and layered reflections even before final path-traced polishing.
     core = spawn_mesh(
         "HeroReflectiveCore", cube, unreal.Vector(800.0, 0.0, 1000.0),
-        unreal.Vector(2.18, 2.18, 2.18), unreal.Rotator(18.0, 32.0, 11.0),
+        unreal.Vector(1.35, 1.35, 1.35), unreal.Rotator(18.0, 32.0, 11.0),
         materials["core"], "OrbitalGlassLab/Hero", movable=True)
     try:
         core.set_editor_property("tags", [unreal.Name("OrbitalHeroCore")])
@@ -282,9 +303,9 @@ def build_stage(materials):
     # Two restrained studio fills keep the glass readable after sunset.
     fill_specs = [
         ("HeroFillCool", unreal.Vector(0.0, -1150.0, 1550.0),
-         2200.0, unreal.Color(55, 155, 255, 255)),
+         5200.0, unreal.Color(55, 155, 255, 255)),
         ("HeroFillWarm", unreal.Vector(0.0, 1200.0, 1250.0),
-         1200.0, unreal.Color(255, 125, 70, 255)),
+         3600.0, unreal.Color(255, 125, 70, 255)),
     ]
     for label, position, intensity, color in fill_specs:
         fill = spawn_actor(label, unreal.PointLight, position,
@@ -292,7 +313,7 @@ def build_stage(materials):
         fill_component = component(fill, unreal.PointLightComponent)
         set_prop(fill_component, "mobility", unreal.ComponentMobility.MOVABLE)
         set_prop(fill_component, "intensity", intensity)
-        set_prop(fill_component, "attenuation_radius", 2300.0)
+        set_prop(fill_component, "attenuation_radius", 3400.0)
         set_prop(fill_component, "light_color", color)
         set_prop(fill_component, "use_inverse_squared_falloff", True)
 
@@ -342,7 +363,7 @@ def build_cameras():
     camera_specs = [
         ("Camera_OrbitWide", unreal.Vector(2600.0, -2600.0, 1750.0), 35.0),
         ("Camera_GlassClose", unreal.Vector(1500.0, -900.0, 1250.0), 55.0),
-        ("Camera_LEDLow", unreal.Vector(1000.0, -1800.0, 310.0), 40.0),
+        ("Camera_LEDLow", unreal.Vector(1000.0, -1800.0, 310.0), 18.0),
     ]
     for label, location, focal_length in camera_specs:
         camera = spawn_actor(
@@ -363,23 +384,23 @@ def build_scene():
 
     materials = {
         "ground": create_material(
-            "M_GroundDarkV2", (0.012, 0.022, 0.035, 1.0), 0.68, 0.05),
+            "M_GroundDarkV5", (0.009, 0.018, 0.03, 1.0), 0.52, 0.08),
         "plinth": create_material(
-            "M_PlatformStone", (0.09, 0.11, 0.14, 1.0), 0.72, 0.05),
+            "M_PlatformStoneV5", (0.055, 0.07, 0.095, 1.0), 0.46, 0.12),
         "glass": create_material(
-            "M_HeroRoughGlassV4", (0.02, 0.28, 0.48, 1.0), 0.14, 0.0,
-            opacity=0.52, refraction=1.45),
+            "M_HeroRoughGlassV5", (0.015, 0.12, 0.19, 1.0), 0.075, 0.0,
+            opacity=0.46, refraction=1.50, fresnel_opacity=True),
         "core": create_material(
-            "M_HeroReflectiveCoreV4", (0.025, 0.12, 0.2, 1.0),
-            0.2, 0.55),
+            "M_HeroReflectiveCoreV5", (0.012, 0.025, 0.04, 1.0),
+            0.08, 0.92),
         "led": create_material(
-            "M_LEDFixtureV2", (0.01, 0.12, 0.18, 1.0), 0.22, 0.0,
-            emissive=(0.0, 0.35, 0.8, 1.0)),
+            "M_LEDFixtureV5", (0.005, 0.07, 0.11, 1.0), 0.18, 0.0,
+            emissive=(0.0, 0.18, 0.45, 1.0)),
         "pivot": create_material(
             "M_PivotDark", (0.008, 0.012, 0.018, 1.0), 0.85, 0.0),
         "dome": create_material(
-            "M_WorldBoundaryV2", (0.004, 0.012, 0.025, 1.0), 0.55, 0.0,
-            opacity=0.008),
+            "M_WorldBoundaryV5", (0.003, 0.008, 0.018, 1.0), 0.55, 0.0,
+            opacity=0.003),
     }
 
     build_environment(materials)

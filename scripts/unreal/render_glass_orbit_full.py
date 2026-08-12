@@ -5,11 +5,17 @@ import unreal
 
 SEQUENCE_PATH = "/Game/OrbitalGlassLab/Cinematics/LS_GlassOrbit"
 MAP_PATH = "/Game/OrbitalGlassLab/Maps/L_GlassOrbit"
-OUTPUT_DIR = "D:/UnrealRenders/OrbitalGlassLab/final_frames"
+OUTPUT_DIR = "D:/UnrealRenders/OrbitalGlassLab/final_frames_v2"
+_executor = None
 
 
 def log(message):
     unreal.log(f"[OrbitalGlassFullRender] {message}")
+
+
+def on_render_finished(executor, success):
+    log(f"Master finished; success={success}")
+    unreal.EditorPythonScripting.set_keep_python_script_alive(False)
 
 
 def configure_job(job):
@@ -17,7 +23,7 @@ def configure_job(job):
 
     output = config.find_or_add_setting_by_class(unreal.MoviePipelineOutputSetting)
     output.set_editor_property("output_directory", unreal.DirectoryPath(path=OUTPUT_DIR))
-    output.set_editor_property("file_name_format", "glass_orbit_{frame_number}")
+    output.set_editor_property("file_name_format", "glass_orbit_v2_{frame_number}")
     output.set_editor_property("output_resolution", unreal.IntPoint(1280, 720))
     output.set_editor_property("override_existing_output", True)
     output.set_editor_property("zero_pad_frame_numbers", 4)
@@ -41,6 +47,7 @@ def configure_job(job):
 
 
 def render():
+    global _executor
     if not unreal.load_asset(SEQUENCE_PATH):
         raise RuntimeError(f"Missing sequence: {SEQUENCE_PATH}")
 
@@ -60,9 +67,12 @@ def render():
         "map", unreal.SoftObjectPath(MAP_PATH + ".L_GlassOrbit"))
     configure_job(job)
     log(f"Starting 600-frame master -> {OUTPUT_DIR}")
-    executor = subsystem.render_queue_with_executor(unreal.MoviePipelinePIEExecutor)
-    if not executor:
+    unreal.EditorPythonScripting.set_keep_python_script_alive(True)
+    _executor = subsystem.render_queue_with_executor(unreal.MoviePipelinePIEExecutor)
+    if not _executor:
+        unreal.EditorPythonScripting.set_keep_python_script_alive(False)
         raise RuntimeError("Unable to start the PIE render executor")
+    _executor.on_executor_finished_delegate.add_callable(on_render_finished)
 
 
 try:

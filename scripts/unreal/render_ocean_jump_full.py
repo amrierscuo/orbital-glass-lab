@@ -4,10 +4,21 @@ import unreal
 
 SEQUENCE_PATH = "/Game/OrbitalGlassLab/Cinematics/LS_OceanJump"
 MAP_PATH = "/Game/OrbitalGlassLab/Maps/L_OceanJump"
-OUTPUT_DIR = "D:/UnrealRenders/OrbitalGlassLab/ocean_final_frames"
+OUTPUT_DIR = "D:/UnrealRenders/OrbitalGlassLab/ocean_final_frames_v2"
+_executor = None
+
+
+def log(message):
+    unreal.log(f"[OceanJumpRender] {message}")
+
+
+def on_render_finished(executor, success):
+    log(f"Master finished; success={success}")
+    unreal.EditorPythonScripting.set_keep_python_script_alive(False)
 
 
 def render():
+    global _executor
     if not unreal.load_asset(SEQUENCE_PATH):
         raise RuntimeError(f"Missing sequence: {SEQUENCE_PATH}")
     subsystem = unreal.get_editor_subsystem(unreal.MoviePipelineQueueSubsystem)
@@ -24,7 +35,7 @@ def render():
     config = job.get_configuration()
     output = config.find_or_add_setting_by_class(unreal.MoviePipelineOutputSetting)
     output.set_editor_property("output_directory", unreal.DirectoryPath(path=OUTPUT_DIR))
-    output.set_editor_property("file_name_format", "ocean_jump_{frame_number}")
+    output.set_editor_property("file_name_format", "ocean_jump_v2_{frame_number}")
     output.set_editor_property("output_resolution", unreal.IntPoint(1280, 720))
     output.set_editor_property("override_existing_output", True)
     output.set_editor_property("zero_pad_frame_numbers", 4)
@@ -37,9 +48,13 @@ def render():
     aa = config.find_or_add_setting_by_class(unreal.MoviePipelineAntiAliasingSetting)
     aa.set_editor_property("spatial_sample_count", 1)
     aa.set_editor_property("temporal_sample_count", 1)
-    executor = subsystem.render_queue_with_executor(unreal.MoviePipelinePIEExecutor)
-    if not executor:
+    log(f"Starting 450-frame master -> {OUTPUT_DIR}")
+    unreal.EditorPythonScripting.set_keep_python_script_alive(True)
+    _executor = subsystem.render_queue_with_executor(unreal.MoviePipelinePIEExecutor)
+    if not _executor:
+        unreal.EditorPythonScripting.set_keep_python_script_alive(False)
         raise RuntimeError("Unable to start full render")
+    _executor.on_executor_finished_delegate.add_callable(on_render_finished)
 
 
 try:
