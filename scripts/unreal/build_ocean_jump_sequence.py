@@ -140,22 +140,22 @@ def animate_sun(sequence):
     scale = unreal.Vector(1.0, 1.0, 1.0)
     samples = [
         (0, location, unreal.Rotator(roll=0.0, pitch=-32.0, yaw=-65.0), scale),
-        (5 * FPS, location, unreal.Rotator(roll=0.0, pitch=-27.0, yaw=-30.0), scale),
-        (8 * FPS, location, unreal.Rotator(roll=0.0, pitch=-25.0, yaw=4.0), scale),
-        (11 * FPS, location, unreal.Rotator(roll=0.0, pitch=-25.0, yaw=28.0), scale),
-        (END_FRAME, location, unreal.Rotator(roll=0.0, pitch=-25.0, yaw=58.0), scale),
+        (5 * FPS, location, unreal.Rotator(roll=0.0, pitch=-20.0, yaw=-30.0), scale),
+        (8 * FPS, location, unreal.Rotator(roll=0.0, pitch=-10.0, yaw=4.0), scale),
+        (11 * FPS, location, unreal.Rotator(roll=0.0, pitch=-4.0, yaw=28.0), scale),
+        (END_FRAME, location, unreal.Rotator(roll=0.0, pitch=1.5, yaw=58.0), scale),
     ]
     sun = find("OJ_Sun")
     add_transform(sequence, sun, samples)
     sun_component = sun.get_component_by_class(unreal.DirectionalLightComponent)
     if sun_component:
         add_float_property(sequence, sun_component, "Temperature", [
-            (0, 5800.0), (5 * FPS, 5100.0), (8 * FPS, 4100.0),
-            (11 * FPS, 3300.0), (END_FRAME, 2750.0),
+            (0, 5800.0), (5 * FPS, 5200.0), (8 * FPS, 4300.0),
+            (11 * FPS, 3500.0), (END_FRAME, 2900.0),
         ])
         add_float_property(sequence, sun_component, "Intensity", [
-            (0, 7.0), (5 * FPS, 6.4), (8 * FPS, 5.5),
-            (11 * FPS, 4.7), (END_FRAME, 4.0),
+            (0, 7.5), (5 * FPS, 6.7), (8 * FPS, 5.2),
+            (11 * FPS, 3.4), (END_FRAME, 1.1),
         ])
 
 

@@ -1,4 +1,4 @@
-"""Build the first Orbital Glass Lab scene in Unreal Engine 5.8.
+"""Build the Orbital Glass Lab v3 scene in Unreal Engine 5.8.
 
 Run inside Unreal Editor with Tools > Execute Python Script.
 The script is intentionally repeatable: it only replaces actors whose label starts
@@ -130,6 +130,78 @@ def create_material(asset_name, base_color, roughness, metallic=0.0,
     return material
 
 
+def create_textured_material(asset_name, tint, roughness, metallic,
+                             color_texture_path, normal_texture_path=None,
+                             tiling=8.0):
+    """Build a repeatable textured PBR material from bundled Engine assets."""
+    asset_path = f"{MATERIAL_ROOT}/{asset_name}"
+    material = unreal.load_asset(asset_path)
+    if material:
+        unreal.MaterialEditingLibrary.delete_all_material_expressions(material)
+    else:
+        material = asset_tools.create_asset(
+            asset_name, MATERIAL_ROOT, unreal.Material,
+            unreal.MaterialFactoryNew())
+    if not material:
+        raise RuntimeError(f"Could not create material {asset_path}")
+
+    color_texture = unreal.load_asset(color_texture_path)
+    if not color_texture:
+        raise RuntimeError(f"Missing color texture: {color_texture_path}")
+
+    coordinates = unreal.MaterialEditingLibrary.create_material_expression(
+        material, unreal.MaterialExpressionTextureCoordinate, -900, -120)
+    set_prop(coordinates, "u_tiling", float(tiling))
+    set_prop(coordinates, "v_tiling", float(tiling))
+    color_sample = unreal.MaterialEditingLibrary.create_material_expression(
+        material, unreal.MaterialExpressionTextureSampleParameter2D, -650, -120)
+    set_prop(color_sample, "parameter_name", "SurfaceColor")
+    set_prop(color_sample, "texture", color_texture)
+    tint_node = unreal.MaterialEditingLibrary.create_material_expression(
+        material, unreal.MaterialExpressionVectorParameter, -650, 80)
+    set_prop(tint_node, "parameter_name", "Tint")
+    set_prop(tint_node, "default_value", unreal.LinearColor(*tint))
+    tinted = unreal.MaterialEditingLibrary.create_material_expression(
+        material, unreal.MaterialExpressionMultiply, -350, -70)
+    unreal.MaterialEditingLibrary.connect_material_expressions(
+        coordinates, "", color_sample, "Coordinates")
+    unreal.MaterialEditingLibrary.connect_material_expressions(
+        color_sample, "RGB", tinted, "A")
+    unreal.MaterialEditingLibrary.connect_material_expressions(
+        tint_node, "", tinted, "B")
+    unreal.MaterialEditingLibrary.connect_material_property(
+        tinted, "", unreal.MaterialProperty.MP_BASE_COLOR)
+
+    for parameter_name, value, y, target in (
+            ("Roughness", roughness, 220, unreal.MaterialProperty.MP_ROUGHNESS),
+            ("Metallic", metallic, 340, unreal.MaterialProperty.MP_METALLIC)):
+        node = unreal.MaterialEditingLibrary.create_material_expression(
+            material, unreal.MaterialExpressionScalarParameter, -350, y)
+        set_prop(node, "parameter_name", parameter_name)
+        set_prop(node, "default_value", float(value))
+        unreal.MaterialEditingLibrary.connect_material_property(node, "", target)
+
+    if normal_texture_path:
+        normal_texture = unreal.load_asset(normal_texture_path)
+        if normal_texture:
+            normal_sample = unreal.MaterialEditingLibrary.create_material_expression(
+                material, unreal.MaterialExpressionTextureSampleParameter2D,
+                -350, 470)
+            set_prop(normal_sample, "parameter_name", "SurfaceNormal")
+            set_prop(normal_sample, "texture", normal_texture)
+            set_prop(normal_sample, "sampler_type",
+                     unreal.MaterialSamplerType.SAMPLERTYPE_NORMAL)
+            unreal.MaterialEditingLibrary.connect_material_expressions(
+                coordinates, "", normal_sample, "Coordinates")
+            unreal.MaterialEditingLibrary.connect_material_property(
+                normal_sample, "RGB", unreal.MaterialProperty.MP_NORMAL)
+
+    unreal.MaterialEditingLibrary.layout_material_expressions(material)
+    unreal.MaterialEditingLibrary.recompile_material(material)
+    unreal.EditorAssetLibrary.save_asset(asset_path, only_if_is_dirty=False)
+    return material
+
+
 def tag_actor(actor, label, folder):
     actor.set_actor_label(f"{GENERATED_PREFIX}{label}")
     try:
@@ -198,31 +270,46 @@ def open_generated_level():
 def build_environment(materials):
     sun = spawn_actor(
         "Sun", unreal.DirectionalLight, unreal.Vector(0.0, 0.0, 3500.0),
-        unreal.Rotator(-28.0, -35.0, 0.0))
+        unreal.Rotator(roll=0.0, pitch=-28.0, yaw=-35.0))
     sun_component = component(sun, unreal.DirectionalLightComponent)
     set_prop(sun_component, "mobility", unreal.ComponentMobility.MOVABLE)
     set_prop(sun_component, "intensity", 8.0)
     set_prop(sun_component, "use_temperature", True)
     set_prop(sun_component, "temperature", 5600.0)
     set_prop(sun_component, "cast_cloud_shadows", True)
+    set_prop(sun_component, "atmosphere_sun_light", True)
+    set_prop(sun_component, "atmosphere_sun_light_index", 0)
+
+    moon = spawn_actor(
+        "Moon", unreal.DirectionalLight, unreal.Vector(0.0, 0.0, 3600.0),
+        unreal.Rotator(roll=0.0, pitch=-18.0, yaw=135.0))
+    moon_component = component(moon, unreal.DirectionalLightComponent)
+    set_prop(moon_component, "mobility", unreal.ComponentMobility.MOVABLE)
+    set_prop(moon_component, "intensity", 0.0)
+    set_prop(moon_component, "light_color", unreal.Color(105, 145, 255, 255))
+    set_prop(moon_component, "atmosphere_sun_light", True)
+    set_prop(moon_component, "atmosphere_sun_light_index", 1)
 
     sky_atmosphere = spawn_actor(
         "SkyAtmosphere", unreal.SkyAtmosphere, unreal.Vector(0.0, 0.0, 0.0))
-    set_prop(component(sky_atmosphere, unreal.SkyAtmosphereComponent),
-             "transform_mode", unreal.SkyAtmosphereTransformMode.PLANET_TOP_AT_ABSOLUTE_WORLD_ORIGIN)
+    atmosphere_component = component(
+        sky_atmosphere, unreal.SkyAtmosphereComponent)
+    set_prop(atmosphere_component, "transform_mode",
+             unreal.SkyAtmosphereTransformMode.PLANET_TOP_AT_ABSOLUTE_WORLD_ORIGIN)
 
     skylight = spawn_actor(
         "SkyLight", unreal.SkyLight, unreal.Vector(0.0, 0.0, 1800.0))
     skylight_component = component(skylight, unreal.SkyLightComponent)
     set_prop(skylight_component, "mobility", unreal.ComponentMobility.MOVABLE)
     set_prop(skylight_component, "real_time_capture", True)
-    set_prop(skylight_component, "intensity", 0.85)
+    set_prop(skylight_component, "intensity", 1.1)
 
     fog = spawn_actor(
         "HeightFog", unreal.ExponentialHeightFog, unreal.Vector(0.0, 0.0, 0.0))
     fog_component = component(fog, unreal.ExponentialHeightFogComponent)
-    set_prop(fog_component, "fog_density", 0.00025)
-    set_prop(fog_component, "fog_height_falloff", 0.18)
+    set_prop(fog_component, "fog_density", 0.00065)
+    set_prop(fog_component, "fog_height_falloff", 0.12)
+    set_prop(fog_component, "start_distance", 12000.0)
     # Volumetric scattering made the low LED lane fill the entire frame in
     # MRQ. The thin height fog still separates planes without blooming.
     set_prop(fog_component, "volumetric_fog", False)
@@ -231,8 +318,8 @@ def build_environment(materials):
     try:
         cloud = spawn_actor(
             "VolumetricCloud", unreal.VolumetricCloud, unreal.Vector(0.0, 0.0, 0.0))
-        set_prop(component(cloud, unreal.VolumetricCloudComponent),
-                 "layer_bottom_altitude", 5.0)
+        cloud_component = component(cloud, unreal.VolumetricCloudComponent)
+        set_prop(cloud_component, "layer_bottom_altitude", 5.0)
     except Exception as exc:
         warn(f"Volumetric cloud skipped: {exc}")
 
@@ -251,12 +338,7 @@ def build_environment(materials):
     set_prop(settings, "override_auto_exposure_bias", True)
     set_prop(settings, "auto_exposure_bias", 0.65)
 
-    # The sphere gives the map a physical visual boundary. It is intentionally
-    # translucent and two-sided, while Sky Atmosphere supplies the actual sky.
-    spawn_mesh(
-        "WorldBoundary", load_engine_mesh("Sphere"),
-        unreal.Vector(0.0, 0.0, 0.0), unreal.Vector(120.0, 120.0, 120.0),
-        material=materials["dome"], folder="OrbitalGlassLab/Boundary")
+    # Sky Atmosphere is the boundary in v3: no finite sphere can reveal a seam.
 
 
 def build_stage(materials):
@@ -269,7 +351,7 @@ def build_stage(materials):
 
     spawn_mesh(
         "Ground", plane, unreal.Vector(0.0, 0.0, 0.0),
-        unreal.Vector(90.0, 90.0, 90.0), material=materials["ground"])
+        unreal.Vector(5000.0, 5000.0, 5000.0), material=materials["ground"])
     spawn_mesh(
         "CentralPlinth", cylinder, unreal.Vector(0.0, 0.0, 80.0),
         unreal.Vector(12.0, 12.0, 0.8), material=materials["plinth"])
@@ -383,24 +465,27 @@ def build_scene():
     open_generated_level()
 
     materials = {
-        "ground": create_material(
-            "M_GroundDarkV5", (0.009, 0.018, 0.03, 1.0), 0.52, 0.08),
-        "plinth": create_material(
-            "M_PlatformStoneV5", (0.055, 0.07, 0.095, 1.0), 0.46, 0.12),
+        "ground": create_textured_material(
+            "M_GroundInfiniteV6", (0.022, 0.038, 0.065, 1.0), 0.62, 0.08,
+            "/Engine/VREditor/BasicMeshes/"
+            "T_CleanFloorGrunge_01_D.T_CleanFloorGrunge_01_D",
+            tiling=360.0),
+        "plinth": create_textured_material(
+            "M_PlatformStoneV6", (0.12, 0.16, 0.22, 1.0), 0.42, 0.28,
+            "/Engine/EditorResources/TilePatine_D.TilePatine_D",
+            "/Engine/EditorResources/TilePatine_N.TilePatine_N",
+            tiling=10.0),
         "glass": create_material(
-            "M_HeroRoughGlassV5", (0.015, 0.12, 0.19, 1.0), 0.075, 0.0,
-            opacity=0.46, refraction=1.50, fresnel_opacity=True),
+            "M_HeroRoughGlassV6", (0.012, 0.085, 0.16, 1.0), 0.055, 0.0,
+            opacity=0.36, refraction=1.46, fresnel_opacity=True),
         "core": create_material(
-            "M_HeroReflectiveCoreV5", (0.012, 0.025, 0.04, 1.0),
-            0.08, 0.92),
+            "M_HeroReflectiveCoreV6", (0.015, 0.032, 0.06, 1.0),
+            0.12, 0.88),
         "led": create_material(
             "M_LEDFixtureV5", (0.005, 0.07, 0.11, 1.0), 0.18, 0.0,
             emissive=(0.0, 0.18, 0.45, 1.0)),
         "pivot": create_material(
             "M_PivotDark", (0.008, 0.012, 0.018, 1.0), 0.85, 0.0),
-        "dome": create_material(
-            "M_WorldBoundaryV5", (0.003, 0.008, 0.018, 1.0), 0.55, 0.0,
-            opacity=0.003),
     }
 
     build_environment(materials)

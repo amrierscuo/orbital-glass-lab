@@ -5,7 +5,7 @@ import unreal
 
 SEQUENCE_PATH = "/Game/OrbitalGlassLab/Cinematics/LS_GlassOrbit"
 MAP_PATH = "/Game/OrbitalGlassLab/Maps/L_GlassOrbit"
-OUTPUT_DIR = "D:/UnrealRenders/OrbitalGlassLab/final_frames_v2"
+OUTPUT_DIR = "D:/UnrealRenders/OrbitalGlassLab/final_frames_v3"
 _executor = None
 
 
@@ -23,7 +23,7 @@ def configure_job(job):
 
     output = config.find_or_add_setting_by_class(unreal.MoviePipelineOutputSetting)
     output.set_editor_property("output_directory", unreal.DirectoryPath(path=OUTPUT_DIR))
-    output.set_editor_property("file_name_format", "glass_orbit_v2_{frame_number}")
+    output.set_editor_property("file_name_format", "glass_orbit_v3_{frame_number}")
     output.set_editor_property("output_resolution", unreal.IntPoint(1280, 720))
     output.set_editor_property("override_existing_output", True)
     output.set_editor_property("zero_pad_frame_numbers", 4)
@@ -43,7 +43,7 @@ def configure_job(job):
     aa = config.find_or_add_setting_by_class(
         unreal.MoviePipelineAntiAliasingSetting)
     aa.set_editor_property("spatial_sample_count", 1)
-    aa.set_editor_property("temporal_sample_count", 1)
+    aa.set_editor_property("temporal_sample_count", 2)
 
 
 def render():

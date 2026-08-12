@@ -24,7 +24,7 @@
     <section class="hero">
       <p class="eyebrow">Realtime worlds · cinematic studies</p>
       <h1>Materia, luce<br>e movimento.</h1>
-      <p class="intro">Due prove costruite e animate via Python e Sequencer: un monolite orbitale che attraversa il ciclo giorno/notte e un salto sopra un oceano al tramonto.</p>
+      <p class="intro">Due prove costruite e animate via Python e Sequencer. Esplora l'evoluzione V1–V3, dal prototipo alle superfici continue e agli ambienti texturizzati.</p>
 
       <div class="project-switcher" role="tablist" aria-label="Seleziona esperimento">
         <button class="project-tab is-active" type="button" role="tab" aria-selected="true" aria-controls="glass-panel" data-target="glass-panel">
@@ -37,21 +37,35 @@
     </section>
 
     <section class="stage" aria-live="polite">
-      <article class="project-panel is-active" id="glass-panel" role="tabpanel">
+      <article class="project-panel is-active" id="glass-panel" role="tabpanel" data-project="glass">
+        <div class="media-toolbar">
+          <div class="version-switcher" role="group" aria-label="Versione Glass Orbit">
+            <span>Versione</span>
+            <button class="version-button is-active" type="button" data-version="v3" aria-pressed="true">V3</button>
+            <button class="version-button" type="button" data-version="v2" aria-pressed="false">V2</button>
+            <button class="version-button" type="button" data-version="v1" aria-pressed="false">V1</button>
+          </div>
+          <button class="gif-toggle" type="button">Carica GIF</button>
+        </div>
         <div class="video-shell">
-          <video controls playsinline preload="metadata" poster="media/glass-orbit-poster.png">
-            <source src="media/glass-orbit.mp4" type="video/mp4">
+          <video controls playsinline preload="metadata" poster="media/glass-orbit-v3-poster.png">
+            <source src="media/glass-orbit-v3.mp4" type="video/mp4">
             Il browser non supporta il video HTML5.
           </video>
           <div class="video-index" aria-hidden="true">01</div>
         </div>
+        <figure class="gif-preview" hidden>
+          <img alt="Anteprima GIF Glass Orbit">
+          <figcaption>GIF caricata su richiesta</figcaption>
+        </figure>
         <div class="project-copy">
           <div>
             <p class="project-kicker">Studio I</p>
             <h2>Glass Orbit</h2>
           </div>
-          <p>Un cubo rugoso e riflettente ruota e orbita attorno al centro della mappa. Sole, riflessi e LED notturni cambiano il carattere della scena durante uno shot continuo.</p>
+          <p data-version-copy>V3 elimina i bordi della base, aggiunge superfici texturizzate e un cielo atmosferico dinamico al cubo di vetro orbitale.</p>
           <dl class="specs">
+            <div><dt>Versione</dt><dd data-version-label>V3 · Latest</dd></div>
             <div><dt>Durata</dt><dd>19,97 s</dd></div>
             <div><dt>Frame</dt><dd>599</dd></div>
             <div><dt>Output</dt><dd>720p · 30 fps</dd></div>
@@ -59,21 +73,35 @@
         </div>
       </article>
 
-      <article class="project-panel" id="ocean-panel" role="tabpanel" hidden>
+      <article class="project-panel" id="ocean-panel" role="tabpanel" data-project="ocean" hidden>
+        <div class="media-toolbar">
+          <div class="version-switcher" role="group" aria-label="Versione Ocean Jump">
+            <span>Versione</span>
+            <button class="version-button is-active" type="button" data-version="v3" aria-pressed="true">V3</button>
+            <button class="version-button" type="button" data-version="v2" aria-pressed="false">V2</button>
+            <button class="version-button" type="button" data-version="v1" aria-pressed="false">V1</button>
+          </div>
+          <button class="gif-toggle" type="button">Carica GIF</button>
+        </div>
         <div class="video-shell">
-          <video controls playsinline preload="metadata" poster="media/ocean-jump-poster.png">
-            <source src="media/ocean-jump.mp4" type="video/mp4">
+          <video controls playsinline preload="metadata" poster="media/ocean-jump-v3-poster.png">
+            <source src="media/ocean-jump-v3.mp4" type="video/mp4">
             Il browser non supporta il video HTML5.
           </video>
           <div class="video-index" aria-hidden="true">02</div>
         </div>
+        <figure class="gif-preview" hidden>
+          <img alt="Anteprima GIF Ocean Jump">
+          <figcaption>GIF caricata su richiesta</figcaption>
+        </figure>
         <div class="project-copy">
           <div>
             <p class="project-kicker">Studio II</p>
             <h2>Ocean Jump</h2>
           </div>
-          <p>Due piattaforme ruotano sull'asse X sopra un oceano animato. La regia passa dalla terza alla prima persona, segue il salto e chiude sull'atterraggio illuminato.</p>
+          <p data-version-copy>V3 trasforma il piano d'acqua in un oceano continuo fino all'orizzonte, con onde, texture, nuvole e piattaforme materiche.</p>
           <dl class="specs">
+            <div><dt>Versione</dt><dd data-version-label>V3 · Latest</dd></div>
             <div><dt>Durata</dt><dd>15,00 s</dd></div>
             <div><dt>Frame</dt><dd>450</dd></div>
             <div><dt>Output</dt><dd>720p · 30 fps</dd></div>

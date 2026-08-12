@@ -130,9 +130,9 @@ def animate_hero(sequence):
             1000.0 + 90.0 * math.sin(angle * 2.0),
         )
         rotation = unreal.Rotator(
-            18.0 + 360.0 * alpha,
-            32.0 + 720.0 * alpha,
-            11.0 + 240.0 * alpha,
+            roll=18.0 + 360.0 * alpha,
+            pitch=32.0 + 720.0 * alpha,
+            yaw=11.0 + 240.0 * alpha,
         )
         shell_samples.append((second * FPS, location, rotation,
                               unreal.Vector(2.8, 2.8, 2.8)))
@@ -150,12 +150,12 @@ def animate_sun(sequence):
     scale = unreal.Vector(1.0, 1.0, 1.0)
     location = unreal.Vector(0.0, 0.0, 3500.0)
     samples = [
-        (0, location, unreal.Rotator(-38.0, -62.0, 0.0), scale),
-        (5 * FPS, location, unreal.Rotator(-27.0, -32.0, 0.0), scale),
-        (10 * FPS, location, unreal.Rotator(-10.0, 2.0, 0.0), scale),
-        (13 * FPS, location, unreal.Rotator(2.0, 27.0, 0.0), scale),
-        (17 * FPS, location, unreal.Rotator(20.0, 54.0, 0.0), scale),
-        (20 * FPS, location, unreal.Rotator(32.0, 76.0, 0.0), scale),
+        (0, location, unreal.Rotator(roll=0.0, pitch=-32.0, yaw=-55.0), scale),
+        (5 * FPS, location, unreal.Rotator(roll=0.0, pitch=-20.0, yaw=-25.0), scale),
+        (10 * FPS, location, unreal.Rotator(roll=0.0, pitch=-7.0, yaw=8.0), scale),
+        (13 * FPS, location, unreal.Rotator(roll=0.0, pitch=1.0, yaw=30.0), scale),
+        (17 * FPS, location, unreal.Rotator(roll=0.0, pitch=10.0, yaw=58.0), scale),
+        (20 * FPS, location, unreal.Rotator(roll=0.0, pitch=16.0, yaw=78.0), scale),
     ]
     binding = add_transform_track(sequence, sun, samples)
     sun_component = sun.get_component_by_class(unreal.DirectionalLightComponent)
@@ -165,10 +165,20 @@ def animate_sun(sequence):
             (13 * FPS, 3300.0), (17 * FPS, 2750.0), (END_FRAME, 2400.0),
         ])
         add_float_property(sequence, sun_component, "Intensity", [
-            (0, 7.5), (5 * FPS, 6.8), (10 * FPS, 5.0),
-            (13 * FPS, 3.1), (17 * FPS, 1.1), (END_FRAME, 0.25),
+            (0, 8.0), (5 * FPS, 7.2), (10 * FPS, 5.0),
+            (13 * FPS, 2.4), (17 * FPS, 0.35), (END_FRAME, 0.03),
         ])
     return binding
+
+
+def animate_moon(sequence):
+    moon = find_actor("OG_Moon")
+    moon_component = moon.get_component_by_class(unreal.DirectionalLightComponent)
+    if moon_component:
+        add_float_property(sequence, moon_component, "Intensity", [
+            (0, 0.0), (10 * FPS, 0.0), (13 * FPS, 0.08),
+            (17 * FPS, 0.32), (END_FRAME, 0.48),
+        ])
 
 
 def animate_leds(sequence):
@@ -344,6 +354,7 @@ def build():
     sequence = make_sequence()
     animate_hero(sequence)
     animate_sun(sequence)
+    animate_moon(sequence)
     animate_leds(sequence)
     animate_cameras(sequence)
     add_sequence_actor(sequence)
